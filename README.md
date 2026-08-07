@@ -50,6 +50,18 @@ Usage: jpegopt [options] <file|dir> ...
       --dry-run       report only, do not write anything
       --arith         also try arithmetic coding candidates
       --strip-metadata drop APP/COM markers (EXIF/JFIF/comments)
+      --strip-exif    strip EXIF (APP1) markers only
+      --strip-xmp     strip XMP (APP1) markers only
+      --strip-icc     strip ICC color profile (APP2) markers
+      --strip-iptc    strip IPTC/Photoshop (APP13) markers
+      --strip-adobe   strip Adobe (APP14) markers
+      --strip-jfif    strip JFIF (APP0) markers
+      --strip-jfxx    strip JFXX (APP0 extension) markers
+      --strip-com     strip comment (COM) markers
+  -T, --threshold N   keep the original unless savings reach N%
+      --files-from F  read the list of files to process from file F
+      --files-stdin   read the list of files to process from stdin
+  -p, --preserve      copy source timestamps/mode to new outputs
       --json          machine-readable JSON report
       --show-all      list every candidate size per file
       --temp-dir PATH directory for temporary files
@@ -66,7 +78,15 @@ Examples:
 ./build/jpegopt --dry-run photos/          # report only
 ./build/jpegopt -i photos/                 # in-place optimize
 ./build/jpegopt --arith -i --show-all photos/
+./build/jpegopt --strip-exif -T 2 -i --files-stdin < list.txt
 ```
+
+Marker stripping is applied per category and never touches pixels: every
+result is still decoded and verified pixel-identical before it is written.
+`--strip-metadata` removes everything; the `--strip-*` flags remove a single
+category (EXIF, XMP, ICC profile, IPTC, Adobe, JFIF/JFXX, comments). In-place
+writes preserve the original file's timestamps automatically; `-p` extends
+this to fresh `<name>.opt.jpg` outputs.
 
 ### Arithmetic coding
 
@@ -99,5 +119,10 @@ independent re-encode path with occasional wins on small images.
 - **mozjpeg** — not vendored; the *mozmax / moz-default / moz-fast*
   progressive scan scripts in `src/transcoder.cpp` are adapted from
   mozjpeg's `jcparam.c` (BSD 3-Clause).
+
+The `--strip-*`, `--threshold`, `--files-from/--files-stdin` and `-p` options
+mirror familiar command-line conventions of
+[jpegoptim](https://github.com/tjko/jpegoptim) (GPL-3.0); the implementation
+here is original, independent code, licensed Apache-2.0.
 
 Full attribution in `NOTICE`.

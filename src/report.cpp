@@ -51,7 +51,8 @@ void build_report(const std::vector<FileResult>& results, bool json, bool show_a
             out += "  {\"path\":\"" + json_escape(r.path) + "\",\"ok\":" +
                    (r.ok ? "true" : "false") + ",\"changed\":" +
                    (r.changed ? "true" : "false") + ",\"strip_metadata\":" +
-                   (r.strip_metadata ? "true" : "false") + ",\"original_size\":" +
+                   (r.strip_metadata ? "true" : "false") + ",\"stripped_markers\":\"" +
+                   json_escape(r.stripped_markers) + "\",\"original_size\":" +
                    std::to_string(r.original_size) + ",\"best_size\":" +
                    std::to_string(r.best_size) + ",\"method\":\"" +
                    json_escape(r.method) + "\",\"arith\":" +
@@ -91,14 +92,20 @@ void build_report(const std::vector<FileResult>& results, bool json, bool show_a
 
         double ratio = static_cast<double>(r.best_size) / static_cast<double>(r.original_size);
         char line[8192];
+        const std::string strip_note =
+            r.strip_metadata ? " (metadata stripped)"
+                             : (r.stripped_markers.empty()
+                                    ? ""
+                                    : " (stripped: " + r.stripped_markers + ")");
         if (r.changed) {
-            snprintf(line, sizeof(line), "%s: %s -> %s (-%s)%s\n", r.path.c_str(),
+            snprintf(line, sizeof(line), "%s: %s -> %s (-%s)%s%s\n", r.path.c_str(),
                      util::format_bytes(r.original_size).c_str(),
                      util::format_bytes(r.best_size).c_str(),
-                     util::format_pct(ratio).c_str(), method_suffix(r).c_str());
+                     util::format_pct(ratio).c_str(), method_suffix(r).c_str(),
+                     strip_note.c_str());
         } else {
-            snprintf(line, sizeof(line), "%s: %s (unchanged)\n", r.path.c_str(),
-                     util::format_bytes(r.original_size).c_str());
+            snprintf(line, sizeof(line), "%s: %s (unchanged)%s\n", r.path.c_str(),
+                     util::format_bytes(r.original_size).c_str(), strip_note.c_str());
         }
         out += line;
         if (show_all) {

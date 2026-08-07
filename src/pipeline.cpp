@@ -41,6 +41,14 @@ void add_if_valid(Candidate&& cand, const DecodedImage& reference,
     out.push_back(std::move(cand));
 }
 
+// Applies the granular marker policy to encoded bytes. The --strip-metadata
+// fast path (markers never copied) needs no post-processing.
+void maybe_strip(std::vector<uint8_t>& bytes, const PipelineOptions& opts) {
+    if (!opts.strip_metadata && opts.markers.strips_anything()) {
+        strip_markers(bytes, opts.markers);
+    }
+}
+
 }  // namespace
 
 FileResult process_file(const std::string& path, const PipelineOptions& opts) {
@@ -147,6 +155,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
         t2.strip_metadata = opts.strip_metadata;
         t2.scan_style = style;
         if (lossless_transcode(original, t2, t, terr)) {
+            maybe_strip(t, opts);
             add_if_valid(Candidate{tag, arith, std::move(t)}, reference,
                          candidates);
         }
@@ -161,6 +170,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
         std::vector<uint8_t> t;
         std::string terr;
         if (guetzli_encode(original, opts.strip_metadata, t, terr)) {
+            maybe_strip(t, opts);
             add_if_valid(Candidate{"guetzli", false, std::move(t)}, reference,
                          candidates);
         }
@@ -177,6 +187,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
             t2.strip_restart = true;
             t2.strip_metadata = opts.strip_metadata;
             if (lossless_transcode(original, t2, t, terr)) {
+                maybe_strip(t, opts);
                 add_if_valid(Candidate{"arith", true, std::move(t)}, reference,
                              candidates);
             }
@@ -224,21 +235,32 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
 
     res.best_size = res.original_size;
     res.strip_metadata = opts.strip_metadata;
+    MarkerStripped stripped = classify_strippable(original, opts.markers);
+    if (stripped.any()) {
+        res.stripped_markers = stripped.summary();
+    }
     if (winner) {
         res.method = winner->method;
         res.arith_used = arith_used;
         if (winner->bytes.size() < res.original_size) {
-            res.best_size = winner->bytes.size();
-            res.changed = true;
-            res.best_bytes = winner->bytes;
+            const double savings_pct =
+                100.0 * (1.0 - static_cast<double>(winner->bytes.size()) /
+                                   static_cast<double>(res.original_size));
+            if (savings_pct >= opts.min_savings_pct) {
+                res.best_size = winner->bytes.size();
+                res.changed = true;
+                res.best_bytes = winner->bytes;
 
-            if (!opts.dry_run) {
-                std::string out_path = opts.in_place ? path : util::output_path_for(path);
-                if (!util::write_atomic(out_path, winner->bytes, err)) {
-                    res.ok = false;
-                    res.error = err;
-                    util::remove_all(temp_dir);
-                    return res;
+                if (!opts.dry_run) {
+                    std::string out_path = opts.in_place ? path : util::output_path_for(path);
+                    const std::string preserve_from =
+                        (opts.preserve && !opts.in_place) ? path : "";
+                    if (!util::write_atomic(out_path, winner->bytes, err, preserve_from)) {
+                        res.ok = false;
+                        res.error = err;
+                        util::remove_all(temp_dir);
+                        return res;
+                    }
                 }
             }
         }

@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 
 namespace {
 
@@ -14,6 +16,45 @@ bool is_jpeg_extension(const std::string& name) {
     std::string lower = name;
     for (auto& c : lower) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
     return lower == ".jpg" || lower == ".jpeg" || lower == ".jpe" || lower == ".jfif";
+}
+
+std::string trim(const std::string& s) {
+    size_t b = 0;
+    size_t e = s.size();
+    while (b < e && isspace(static_cast<unsigned char>(s[b]))) ++b;
+    while (e > b && isspace(static_cast<unsigned char>(s[e - 1]))) --e;
+    return s.substr(b, e - b);
+}
+
+// Reads one path per line; blank lines and lines starting with '#' are skipped.
+bool load_list_file(const std::string& path, std::vector<std::string>& out,
+                    std::string& err) {
+    std::ifstream in(path);
+    if (!in) {
+        err = "cannot open file list " + path;
+        return false;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        out.push_back(line);
+    }
+    return true;
+}
+
+bool load_list_stdin(std::vector<std::string>& out, std::string& err) {
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        out.push_back(line);
+    }
+    if (std::cin.bad()) {
+        err = "error reading file list from stdin";
+        return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -33,6 +74,18 @@ std::string usage_text() {
         "                      (Huffman is used by default)\n"
         "      --strip-metadata drop APP/COM markers (EXIF/JFIF/comments);\n"
         "                      pixels unchanged, metadata lost\n"
+        "      --strip-exif    strip EXIF (APP1) markers only\n"
+        "      --strip-xmp     strip XMP (APP1) markers only\n"
+        "      --strip-icc     strip ICC color profile (APP2) markers\n"
+        "      --strip-iptc    strip IPTC/Photoshop (APP13) markers\n"
+        "      --strip-adobe   strip Adobe (APP14) markers\n"
+        "      --strip-jfif    strip JFIF (APP0) markers\n"
+        "      --strip-jfxx    strip JFXX (APP0 extension) markers\n"
+        "      --strip-com     strip comment (COM) markers\n"
+        "  -T, --threshold N   keep the original unless savings reach N%\n"
+        "      --files-from F  read the list of files to process from file F\n"
+        "      --files-stdin   read the list of files to process from stdin\n"
+        "  -p, --preserve      copy source timestamps/mode to new outputs\n"
         "      --json          machine-readable JSON report\n"
         "      --show-all      list every candidate size per file\n"
         "      --temp-dir PATH directory for temporary files\n"
@@ -75,6 +128,37 @@ bool parse_cli(int argc, char** argv, CliOptions& opts, std::string& err) {
             opts.allow_arith = true;
         } else if (a == "--strip-metadata") {
             opts.strip_metadata = true;
+        } else if (a == "--strip-exif") {
+            opts.markers.strip_exif = true;
+        } else if (a == "--strip-xmp") {
+            opts.markers.strip_xmp = true;
+        } else if (a == "--strip-icc") {
+            opts.markers.strip_icc = true;
+        } else if (a == "--strip-iptc") {
+            opts.markers.strip_iptc = true;
+        } else if (a == "--strip-adobe") {
+            opts.markers.strip_adobe = true;
+        } else if (a == "--strip-jfif") {
+            opts.markers.strip_jfif = true;
+        } else if (a == "--strip-jfxx") {
+            opts.markers.strip_jfxx = true;
+        } else if (a == "--strip-com") {
+            opts.markers.strip_com = true;
+        } else if (needs_value("-T", "--threshold")) {
+            const char* v = argv[++i];
+            char* end = nullptr;
+            double t = strtod(v, &end);
+            if (end == v || *end != '\0' || t < 0.0 || t > 100.0) {
+                err = "invalid threshold (0-100): " + std::string(v);
+                return false;
+            }
+            opts.threshold_pct = t;
+        } else if (needs_value("--files-from", "--files-from")) {
+            opts.list_files.push_back(argv[++i]);
+        } else if (a == "--files-stdin") {
+            opts.read_stdin_list = true;
+        } else if (a == "-p" || a == "--preserve") {
+            opts.preserve = true;
         } else if (a == "--json") {
             opts.json = true;
         } else if (a == "--show-all") {
@@ -88,6 +172,17 @@ bool parse_cli(int argc, char** argv, CliOptions& opts, std::string& err) {
             return false;
         } else {
             opts.inputs.push_back(a);
+        }
+    }
+
+    for (const auto& f : opts.list_files) {
+        if (!load_list_file(f, opts.inputs, err)) {
+            return false;
+        }
+    }
+    if (opts.read_stdin_list) {
+        if (!load_list_stdin(opts.inputs, err)) {
+            return false;
         }
     }
     return true;

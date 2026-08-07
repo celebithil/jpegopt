@@ -86,8 +86,8 @@ bool compress_rgb_fixture(const std::vector<uint8_t>& rgb, int width, int height
     if (rows_per_restart > 0) cinfo.restart_in_rows = rows_per_restart;
     jpeg_start_compress(&cinfo, TRUE);
     if (add_markers) {
-        static const JOCTET kFakeExif[] = {'F', 'a', 'k', 'e', 'E', 'x', 'i', 'f',
-                                           '\0', '1', '2', '3', '4', '5'};
+        static const JOCTET kFakeExif[] = {'E', 'x', 'i', 'f', '\0', '\0',
+                                           '1', '2', '3', '4', '5', '6', '7'};
         jpeg_write_marker(&cinfo, JPEG_APP0 + 1, kFakeExif, sizeof(kFakeExif));
         static const JOCTET kComment[] = {'j', 'p', 'e', 'g', 'o', 'p',
                                           't', ' ', 't', 'e', 's', 't'};
@@ -467,6 +467,129 @@ void test_pipeline(std::vector<uint8_t>& jpeg, const std::string& label,
     std::filesystem::remove_all(dir, ec);
 }
 
+// Inserts a raw APP1 (EXIF) segment right after SOI. Used to force a large
+// strippable marker so the granular-strip pipeline test is deterministic.
+void insert_app1(std::vector<uint8_t>& jpeg, const std::string& payload) {
+    if (jpeg.size() < 2 || jpeg[0] != 0xFF || jpeg[1] != 0xD8) return;
+    const size_t seg_len = payload.size() + 2;
+    std::vector<uint8_t> out;
+    out.reserve(jpeg.size() + 2 + seg_len);
+    out.push_back(0xFF);
+    out.push_back(0xD8);
+    out.push_back(0xFF);
+    out.push_back(0xE1);
+    out.push_back(static_cast<uint8_t>((seg_len >> 8) & 0xFF));
+    out.push_back(static_cast<uint8_t>(seg_len & 0xFF));
+    out.insert(out.end(), payload.begin(), payload.end());
+    out.insert(out.end(), jpeg.begin() + 2, jpeg.end());
+    jpeg = std::move(out);
+}
+
+void test_marker_strip_unit() {
+    std::vector<uint8_t> rgb;
+    make_synthetic_rgb(320, 240, rgb);
+    std::vector<uint8_t> meta;
+    std::string err;
+    CHECK(compress_rgb_fixture(rgb, 320, 240, 85, 0, true, meta, err),
+          "compress metadata fixture");
+    DecodedImage ref;
+    CHECK(decode_rgb(meta, ref, err), "decode meta fixture");
+
+    MarkerPolicy exif_only;
+    exif_only.strip_exif = true;
+    MarkerStripped cs = classify_strippable(meta, exif_only);
+    CHECK(cs.exif && cs.any(), "classify finds EXIF");
+    CHECK(cs.summary() == "exif", "classify summary is exif");
+
+    std::vector<uint8_t> s1 = meta;
+    strip_markers(s1, exif_only);
+    CHECK(count_markers(s1, 0xE1) == 0, "strip removes APP1");
+    CHECK(count_markers(s1, 0xFE) >= 1, "strip keeps COM");
+    CHECK(decode_and_compare(s1, ref), "strip-exif lossless");
+
+    MarkerPolicy com_only;
+    com_only.strip_com = true;
+    std::vector<uint8_t> s2 = meta;
+    strip_markers(s2, com_only);
+    CHECK(count_markers(s2, 0xFE) == 0, "strip removes COM");
+    CHECK(count_markers(s2, 0xE1) >= 1, "strip keeps APP1");
+    CHECK(decode_and_compare(s2, ref), "strip-com lossless");
+
+    std::vector<uint8_t> s3 = meta;
+    strip_markers(s3, MarkerPolicy{});
+    CHECK(s3 == meta, "empty policy leaves bytes identical");
+
+    MarkerPolicy both;
+    both.strip_exif = true;
+    both.strip_com = true;
+    std::vector<uint8_t> s4 = meta;
+    strip_markers(s4, both);
+    CHECK(count_markers(s4, 0xE1) == 0 && count_markers(s4, 0xFE) == 0, "strip both");
+    CHECK(decode_and_compare(s4, ref), "strip both lossless");
+}
+
+void test_pipeline_markers() {
+    std::vector<uint8_t> rgb;
+    make_synthetic_rgb(320, 240, rgb);
+    std::vector<uint8_t> meta;
+    std::string err;
+    CHECK(compress_rgb_fixture(rgb, 320, 240, 85, 0, true, meta, err),
+          "compress meta fixture");
+    std::string big_exif("Exif\0\0", 6);
+    big_exif.append(60000, 'A');
+    insert_app1(meta, big_exif);
+
+    std::string dir = (std::filesystem::temp_directory_path() /
+                       ("jpegopt-mk-" + std::to_string(getpid()))).string();
+    std::error_code ec;
+    std::filesystem::create_directory(dir, ec);
+    std::string src = dir + "/src.jpg";
+    CHECK(util::write_file(src, meta, err), "write marker src");
+
+    PipelineOptions opts;
+    opts.markers.strip_exif = true;
+    opts.temp_dir = dir + "/tmp";
+    FileResult r = process_file(src, opts);
+    CHECK(r.ok, "pipeline with strip-exif ok");
+    CHECK(r.changed, "large EXIF guarantees a smaller result");
+    CHECK(r.stripped_markers.find("exif") != std::string::npos, "reports exif stripped");
+
+    std::vector<uint8_t> out_bytes;
+    CHECK(util::read_file(util::output_path_for(src), out_bytes, err), "read marker output");
+    CHECK(count_markers(out_bytes, 0xE1) == 0, "output has no APP1");
+    CHECK(count_markers(out_bytes, 0xFE) >= 1, "output keeps COM");
+    DecodedImage ref;
+    CHECK(decode_rgb(meta, ref, err), "decode marker src ref");
+    CHECK(decode_and_compare(out_bytes, ref), "strip-exif output lossless");
+
+    std::filesystem::remove_all(dir, ec);
+}
+
+void test_pipeline_threshold() {
+    std::vector<uint8_t> rgb;
+    make_synthetic_rgb(320, 240, rgb);
+    std::vector<uint8_t> prog;
+    std::string err;
+    CHECK(compress_rgb(rgb, 320, 240, 85, true, prog, err), "compress progressive");
+
+    std::string dir = (std::filesystem::temp_directory_path() /
+                       ("jpegopt-th-" + std::to_string(getpid()))).string();
+    std::error_code ec;
+    std::filesystem::create_directory(dir, ec);
+    std::string src = dir + "/src.jpg";
+    CHECK(util::write_file(src, prog, err), "write threshold src");
+
+    PipelineOptions opts;
+    opts.min_savings_pct = 90.0;
+    opts.temp_dir = dir + "/tmp";
+    FileResult r = process_file(src, opts);
+    CHECK(r.ok, "pipeline with threshold ok");
+    CHECK(!r.changed, "90% threshold blocks any write");
+    CHECK(!util::file_exists(util::output_path_for(src)), "no output written below threshold");
+
+    std::filesystem::remove_all(dir, ec);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -491,6 +614,10 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> lowq;
     CHECK(compress_rgb(rgb, 640, 480, 30, false, lowq, err), "compress lowq");
     test_pipeline(lowq, "low-quality");
+
+    test_marker_strip_unit();
+    test_pipeline_markers();
+    test_pipeline_threshold();
 
     if (failures == 0) {
         printf("All tests passed.\n");

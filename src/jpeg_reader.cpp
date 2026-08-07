@@ -2,6 +2,8 @@
 
 #include "jpeg_reader.h"
 
+#include <cstring>
+
 namespace {
 
 // Marker byte values used in the classification logic.
@@ -245,4 +247,203 @@ bool extract_scan_script(const std::vector<uint8_t>& data, std::vector<JpegScan>
         pos += 2 + len;
     }
     return false;
+}
+
+namespace {
+
+enum class MarkerCat { kOther, kJfif, kJfxx, kExif, kXmp, kIcc, kIptc, kAdobe, kCom };
+
+// `seg` points at a length-prefixed segment (0xFF, code, L, payload...).
+MarkerCat classify_segment(const std::vector<uint8_t>& data, size_t seg) {
+    const uint8_t code = data[seg + 1];
+    const size_t len = (data[seg + 2] << 8) | data[seg + 3];
+    const size_t payload = seg + 4;
+    if (len < 2) return MarkerCat::kOther;
+
+    auto has = [&](const char* s) -> bool {
+        size_t n = 0;
+        while (s[n] != '\0') ++n;
+        return payload + n <= data.size() &&
+               memcmp(data.data() + payload, s, n) == 0;
+    };
+
+    switch (code) {
+        case 0xE0:  // APP0
+            if (has("JFIF\0")) return MarkerCat::kJfif;
+            if (has("JFXX\0")) return MarkerCat::kJfxx;
+            return MarkerCat::kOther;
+        case 0xE1:  // APP1
+            if (has("Exif\0\0")) return MarkerCat::kExif;
+            if (has("http://ns.adobe.com/")) return MarkerCat::kXmp;
+            return MarkerCat::kOther;
+        case 0xE2:  // APP2
+            if (has("ICC_PROFILE\0")) return MarkerCat::kIcc;
+            return MarkerCat::kOther;
+        case 0xED:  // APP13
+            if (has("Photoshop 3.0\0")) return MarkerCat::kIptc;
+            return MarkerCat::kOther;
+        case 0xEE:  // APP14
+            if (has("Adobe\0")) return MarkerCat::kAdobe;
+            return MarkerCat::kOther;
+        case 0xFE:  // COM
+            return MarkerCat::kCom;
+        default:
+            return MarkerCat::kOther;
+    }
+}
+
+bool category_flagged(MarkerCat cat, const MarkerPolicy& policy) {
+    switch (cat) {
+        case MarkerCat::kJfif: return policy.strip_jfif;
+        case MarkerCat::kJfxx: return policy.strip_jfxx;
+        case MarkerCat::kExif: return policy.strip_exif;
+        case MarkerCat::kXmp: return policy.strip_xmp;
+        case MarkerCat::kIcc: return policy.strip_icc;
+        case MarkerCat::kIptc: return policy.strip_iptc;
+        case MarkerCat::kAdobe: return policy.strip_adobe;
+        case MarkerCat::kCom: return policy.strip_com;
+        default: return false;
+    }
+}
+
+// Walks length-prefixed segments in the header region (before the first SOS).
+// `handle` receives every segment start; returns false to stop the walk.
+template <typename F>
+bool walk_header(const std::vector<uint8_t>& data, F&& handle) {
+    if (data.size() < 4 || data[0] != 0xFF || data[1] != kSoi) {
+        return false;
+    }
+    size_t pos = 2;
+    while (pos + 1 < data.size()) {
+        while (pos < data.size() && data[pos] != 0xFF) {
+            ++pos;
+        }
+        if (pos + 1 >= data.size()) {
+            return false;
+        }
+        uint8_t c = data[pos + 1];
+        if (c == 0xFF) {  // fill byte
+            ++pos;
+            continue;
+        }
+        if (c == kEoi || c == kSos) {
+            return true;
+        }
+        if (c == 0x01 || (c >= 0xD0 && c <= 0xD7) || c == kSoi) {
+            pos += 2;
+            continue;
+        }
+        if (pos + 4 > data.size()) {
+            return false;
+        }
+        const size_t len = (data[pos + 2] << 8) | data[pos + 3];
+        if (len < 2 || pos + 2 + len > data.size()) {
+            return false;
+        }
+        if (!handle(pos)) {
+            return true;
+        }
+        pos += 2 + len;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::string MarkerStripped::summary() const {
+    std::string s;
+    auto add = [&](bool v, const char* name) {
+        if (v) {
+            if (!s.empty()) s += ",";
+            s += name;
+        }
+    };
+    add(jfif, "jfif");
+    add(jfxx, "jfxx");
+    add(exif, "exif");
+    add(xmp, "xmp");
+    add(icc, "icc");
+    add(iptc, "iptc");
+    add(adobe, "adobe");
+    add(com, "com");
+    return s;
+}
+
+MarkerStripped classify_strippable(const std::vector<uint8_t>& data,
+                                   const MarkerPolicy& policy) {
+    MarkerStripped out;
+    auto flag = [&](MarkerCat cat) {
+        switch (cat) {
+            case MarkerCat::kJfif: out.jfif = true; break;
+            case MarkerCat::kJfxx: out.jfxx = true; break;
+            case MarkerCat::kExif: out.exif = true; break;
+            case MarkerCat::kXmp: out.xmp = true; break;
+            case MarkerCat::kIcc: out.icc = true; break;
+            case MarkerCat::kIptc: out.iptc = true; break;
+            case MarkerCat::kAdobe: out.adobe = true; break;
+            case MarkerCat::kCom: out.com = true; break;
+            default: break;
+        }
+    };
+    walk_header(data, [&](size_t seg) {
+        MarkerCat cat = classify_segment(data, seg);
+        if (category_flagged(cat, policy)) {
+            flag(cat);
+        }
+        return true;
+    });
+    return out;
+}
+
+void strip_markers(std::vector<uint8_t>& data, const MarkerPolicy& policy) {
+    if (data.size() < 4 || data[0] != 0xFF || data[1] != kSoi) {
+        return;
+    }
+    std::vector<uint8_t> out;
+    out.reserve(data.size());
+    out.push_back(0xFF);
+    out.push_back(kSoi);
+
+    size_t pos = 2;
+    while (pos + 1 < data.size()) {
+        size_t mark = pos;
+        while (mark < data.size() && data[mark] != 0xFF) {
+            ++mark;
+        }
+        out.insert(out.end(), data.begin() + pos, data.begin() + mark);
+        if (mark + 1 >= data.size()) {
+            break;
+        }
+        const uint8_t c = data[mark + 1];
+        if (c == 0xFF) {  // fill byte; keep, continue scanning
+            out.push_back(0xFF);
+            pos = mark + 1;
+            continue;
+        }
+        if (c == kEoi || c == kSos) {
+            out.insert(out.end(), data.begin() + mark, data.end());
+            break;
+        }
+        if (c == 0x01 || (c >= 0xD0 && c <= 0xD7)) {
+            out.push_back(0xFF);
+            out.push_back(c);
+            pos = mark + 2;
+            continue;
+        }
+        if (mark + 4 > data.size()) {
+            out.insert(out.end(), data.begin() + mark, data.end());
+            break;
+        }
+        const size_t len = (data[mark + 2] << 8) | data[mark + 3];
+        if (len < 2 || mark + 2 + len > data.size()) {
+            out.insert(out.end(), data.begin() + mark, data.end());
+            break;
+        }
+        MarkerCat cat = classify_segment(data, mark);
+        if (!category_flagged(cat, policy)) {
+            out.insert(out.end(), data.begin() + mark, data.begin() + mark + 2 + len);
+        }
+        pos = mark + 2 + len;
+    }
+    data = std::move(out);
 }

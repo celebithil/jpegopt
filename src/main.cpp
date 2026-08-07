@@ -53,6 +53,9 @@ int main(int argc, char** argv) {
     popts.in_place = opts.in_place;
     popts.verbose = opts.verbose;
     popts.strip_metadata = opts.strip_metadata;
+    popts.markers = opts.markers;
+    popts.min_savings_pct = opts.threshold_pct;
+    popts.preserve = opts.preserve;
     popts.temp_dir = opts.temp_dir;
 
     std::vector<FileResult> results(files.size());

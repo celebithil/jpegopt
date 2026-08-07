@@ -12,7 +12,11 @@ namespace util {
 bool read_file(const std::string& path, std::vector<uint8_t>& out, std::string& err);
 bool write_file(const std::string& path, const std::vector<uint8_t>& data, std::string& err);
 // Writes data to a unique temp file next to `target`, then renames over it.
-bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, std::string& err);
+// The mode and timestamps of an existing `target` are preserved. When `target`
+// does not exist and `preserve_from` is non-empty, the mode/timestamps of that
+// file are copied instead (used by --preserve for fresh .opt.jpg outputs).
+bool write_atomic(const std::string& target, const std::vector<uint8_t>& data,
+                  std::string& err, const std::string& preserve_from = "");
 bool file_exists(const std::string& path);
 uint64_t file_size(const std::string& path);
 

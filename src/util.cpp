@@ -59,7 +59,8 @@ bool write_file(const std::string& path, const std::vector<uint8_t>& data, std::
     return true;
 }
 
-bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, std::string& err) {
+bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, std::string& err,
+                  const std::string& preserve_from) {
     std::filesystem::path tp(target);
     std::string tmp = tp.parent_path().string() + "/.jpegopt.tmp." +
                       std::to_string(static_cast<long long>(getpid())) + "." +
@@ -68,13 +69,23 @@ bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, s
         return false;
     }
     struct stat st;
-    if (stat(target.c_str(), &st) == 0) {
+    bool have = stat(target.c_str(), &st) == 0;
+    if (!have && !preserve_from.empty()) {
+        have = stat(preserve_from.c_str(), &st) == 0;
+    }
+    if (have) {
         chmod(tmp.c_str(), st.st_mode & 07777);
     }
     if (rename(tmp.c_str(), target.c_str()) != 0) {
         err = "cannot rename to " + target;
         remove(tmp.c_str());
         return false;
+    }
+    if (have) {
+        struct timespec times[2];
+        times[0] = st.st_atim;
+        times[1] = st.st_mtim;
+        utimensat(AT_FDCWD, target.c_str(), times, 0);
     }
     return true;
 }

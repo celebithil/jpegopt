@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 
-#define JPEGOPT_VERSION "0.1.0"
+#include "jpeg_reader.h"
+
+#define JPEGOPT_VERSION "0.2.0"
 
 struct CliOptions {
     bool help = false;
@@ -19,6 +21,12 @@ struct CliOptions {
     bool verbose = false;
     bool show_all = false;
     bool strip_metadata = false;
+    MarkerPolicy markers;
+    // --threshold: minimum savings (percent) before a result is written.
+    double threshold_pct = 0.0;
+    bool preserve = false;
+    bool read_stdin_list = false;  // --files-stdin
+    std::vector<std::string> list_files;  // --files-from FILE
     std::string temp_dir;
     std::vector<std::string> inputs;
 };

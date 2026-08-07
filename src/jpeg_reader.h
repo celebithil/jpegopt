@@ -40,3 +40,49 @@ bool extract_scan_script(const std::vector<uint8_t>& data, std::vector<JpegScan>
 // region before the first SOS marker. Standalone markers and SOS itself are
 // not counted for `code`.
 int count_markers(const std::vector<uint8_t>& data, uint8_t code);
+
+// Which marker categories to remove from the output. Each flag mirrors the
+// --strip-* CLI option; metadata markers are preserved by default.
+struct MarkerPolicy {
+    bool strip_jfif = false;   // APP0 JFIF
+    bool strip_jfxx = false;   // APP0 JFXX (JFIF extension)
+    bool strip_exif = false;   // APP1 "Exif\0\0"
+    bool strip_xmp = false;    // APP1 "http://ns.adobe.com/xap/..."
+    bool strip_icc = false;    // APP2 "ICC_PROFILE\0"
+    bool strip_iptc = false;   // APP13 "Photoshop 3.0\0"
+    bool strip_adobe = false;  // APP14 "Adobe\0"
+    bool strip_com = false;    // COM
+
+    bool strips_anything() const {
+        return strip_jfif || strip_jfxx || strip_exif || strip_xmp ||
+               strip_icc || strip_iptc || strip_adobe || strip_com;
+    }
+};
+
+// Which marker categories were found in a file and would be stripped by a
+// policy. Used for reporting.
+struct MarkerStripped {
+    bool jfif = false;
+    bool jfxx = false;
+    bool exif = false;
+    bool xmp = false;
+    bool icc = false;
+    bool iptc = false;
+    bool adobe = false;
+    bool com = false;
+
+    bool any() const {
+        return jfif || jfxx || exif || xmp || icc || iptc || adobe || com;
+    }
+    // Comma-joined category names actually stripped, e.g. "exif,com".
+    std::string summary() const;
+};
+
+// Scans the header region of `data` and reports which marker categories
+// selected by `policy` are present (and thus would be removed).
+MarkerStripped classify_strippable(const std::vector<uint8_t>& data,
+                                   const MarkerPolicy& policy);
+
+// Removes the APP/COM segments flagged by `policy` from the header region of
+// `data` (before the first SOS). Entropy-coded data and pixels are untouched.
+void strip_markers(std::vector<uint8_t>& data, const MarkerPolicy& policy);
