@@ -14,8 +14,8 @@ option(JPEGOPT_BUILD_TESTS "Build jpegopt tests" ON)
 find_package(Threads REQUIRED)
 include(ExternalProject)
 
-set(TURBO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjpeg-turbo)
-set(GUETZLI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/guetzli)
+set(TURBO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/libjpeg-turbo)
+set(GUETZLI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vendor/guetzli/guetzli)
 
 # ---------------------------------------------------------------------------
 # libjpeg-turbo (lossless transcode + independent verification decoder)
@@ -24,7 +24,7 @@ set(GUETZLI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/guetzli)
 # provides both the TurboJPEG API and the jpeglib API we need.
 # ---------------------------------------------------------------------------
 set(TURBO_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/turbo)
-set(TURBO_SRC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libjpeg-turbo)
+set(TURBO_SRC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/libjpeg-turbo/libjpeg-turbo)
 
 ExternalProject_Add(libjpeg_turbo
   SOURCE_DIR ${TURBO_SRC}
@@ -59,7 +59,7 @@ add_dependencies(turbojpeg_static libjpeg_turbo)
 # self-contained entropy-coding files are compiled (no butteraugli/libpng).
 # Vendored in-tree (not a submodule) because it carries a local patch:
 # jpeg_data_reader.cc no-ops fprintf() so stdout/stderr stay clean under
-# multi-threaded runs (see third_party/guetzli/JPEGOPT_PATCH.md).
+# multi-threaded runs (see vendor/guetzli/JPEGOPT_PATCH.md).
 # ---------------------------------------------------------------------------
 add_library(guetzli_enc STATIC
   ${GUETZLI_DIR}/guetzli/entropy_encode.cc
@@ -84,7 +84,7 @@ set(JPEGOPT_CORE_SOURCES
   src/verify.cpp)
 
 add_library(jpegopt_core STATIC ${JPEGOPT_CORE_SOURCES})
-target_include_directories(jpegopt_core PUBLIC src ${TURBO_DIR})
+target_include_directories(jpegopt_core PUBLIC src ${TURBO_DIR}/libjpeg-turbo ${TURBO_PREFIX}/include)
 target_link_libraries(jpegopt_core PUBLIC
   guetzli_enc turbojpeg_static Threads::Threads m)
 
