@@ -5,19 +5,19 @@ Licensed under the Apache License, Version 2.0 (see LICENSE).
 This product bundles or is derived from third-party software as follows:
 
 libjpeg-turbo
-  third_party/libjpeg-turbo (git submodule, commit f29eda6)
+  vendor/libjpeg-turbo (vendored in-tree, commit f29eda6)
   Copyright (C) 2009-2021 D. R. Commander and other contributors
   Licensed under the BSD 3-Clause License.
   Used for lossless JPEG transcoding (jpeglib API) and as an independent
   pixel-verification decoder (TurboJPEG API).
 
 guetzli
-  third_party/guetzli (vendored in-tree, commit 214f2bb)
+  vendor/guetzli (vendored in-tree, commit 214f2bb)
   Copyright 2016 Google Inc.
   Licensed under the Apache License, Version 2.0.
   Used for the cost-clustered Huffman encoding candidate. The in-tree copy
   carries one local modification (a no-op for fprintf in jpeg_data_reader.cc);
-  see third_party/guetzli/JPEGOPT_PATCH.md.
+  see vendor/guetzli/guetzli/JPEGOPT_PATCH.md.
 
 mozjpeg
   The progressive scan scripts in src/transcoder.cpp (the kMozMax*/kMozFast

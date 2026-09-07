@@ -8,7 +8,7 @@
 
 #include "jpeg_reader.h"
 
-#define JPEGOPT_VERSION "0.2.0"
+#define JPEGOPT_VERSION "1.0.0"
 
 struct CliOptions {
     bool help = false;
