@@ -4,8 +4,87 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: ${{ matrix.compiler }} ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: g++
+            cxx: g++
+          - os: ubuntu-latest
+            compiler: clang
+            cc: clang
+            cxx: clang++
+          - os: ubuntu-24.04
+            compiler: gcc
+            cc: g++
+            cxx: g++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    name: asan+ubsan (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm
+
+      - name: Configure with sanitizers
+        env:
+          CC: ${{ matrix.compiler == 'clang' && 'clang' || 'gcc' }}
+          CXX: ${{ matrix.compiler == 'clang' && 'clang++' || 'g++' }}
+        run: |
+          cmake -S . -B build-asan \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build-asan -j"$(nproc)"
+
+      - name: Test
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --test-dir build-asan --output-on-failure
+
+  cli-contract:
+    name: CLI contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,9 +92,74 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm
-      - name: Configure
-        run: cmake -S . -B build
       - name: Build
-        run: cmake --build build -j"$(nproc)"
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: |
+          cmake -S . -B build
+          cmake --build build -j"$(nproc)"
+
+      - name: End-to-end smoke test
+        # Real run over a vendored test image: verifies the whole pipeline
+        # (decode, candidate search, pixel verification, atomic write) and the
+        # exit codes, which ctest does not cover.
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          cp vendor/libjpeg-turbo/libjpeg-turbo/testimages/testorig.jpg "$work/"
+          cp vendor/libjpeg-turbo/libjpeg-turbo/testimages/testimgint.jpg "$work/"
+
+          # report only, must succeed and mention the file
+          ./build/jpegopt --dry-run "$work" | tee "$work/report.txt"
+          grep -q testorig "$work/report.txt"
+          test -z "$(find "$work" -name '*.opt.jpg')"   # dry-run wrote nothing
+
+          # real run, threshold so high that nothing is written
+          ./build/jpegopt -T 99 "$work" >/dev/null
+          test -z "$(find "$work" -name '*.opt.jpg')"   # threshold blocked it
+
+          # verbose diagnostics go to stderr and name the file
+          ./build/jpegopt --dry-run -v "$work/testorig.jpg" 2>&1 >/dev/null \
+            | tee "$work/verbose.txt" | grep -q testorig
+
+          # JSON report parses and carries the documented keys
+          ./build/jpegopt --dry-run --json "$work" > "$work/out.json"
+          python3 - "$work/out.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          assert isinstance(d, list) and d, "expected a non-empty array"
+          for r in d:
+              for k in ("path","ok","changed","strip_metadata","stripped_markers",
+                        "original_size","best_size","method","arith",
+                        "arith_fell_back","error","candidates"):
+                  assert k in r, f"missing key {k}"
+              assert r["best_size"] <= r["original_size"], "output grew"
+          PY
+
+          # exit code 2 on a bad option
+          if ./build/jpegopt --nope >/dev/null 2>&1; then
+            echo "expected exit 2 for an unknown option"; exit 1
+          fi
+          rm -rf "$work"
+
+      - name: Usage text lists every accepted option
+        # Guards against README/--help drift: every long option the parser
+        # accepts must appear in the usage text.
+        run: |
+          set -euo pipefail
+          help=$(./build/jpegopt --help)
+          missing=0
+          for opt in $(grep -o '"--[a-z-]*"' src/cli.cpp | tr -d '"' | sort -u); do
+            case "$opt" in --help|--version) continue;; esac
+            if ! grep -q -- "$opt" <<<"$help"; then
+              echo "option $opt is parsed but missing from --help"; missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Version string is consistent
+        run: |
+          set -euo pipefail
+          cli=$(grep -o 'JPEGOPT_VERSION "[^"]*"' src/cli.h | cut -d'"' -f2)
+          cmake_ver=$(sed -n 's/^project(jpegopt VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          echo "cli.h=$cli cmake=$cmake_ver"
+          test -n "$cmake_ver"
+          test "$cli" = "$cmake_ver"
