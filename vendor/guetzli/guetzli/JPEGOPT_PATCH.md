@@ -1,6 +1,6 @@
 # guetzli: local patch for jpegopt
 
-`third_party/guetzli` is google/guetzli (Apache-2.0) vendored in-tree as a
+`vendor/guetzli` is google/guetzli (Apache-2.0) vendored in-tree as a
 regular directory (not a submodule) because it carries one local modification:
 
 ## jpeg_data_reader.cc

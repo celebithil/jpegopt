@@ -1,6 +1,13 @@
 build/
 *.opt.jpg
+*.opt.jpeg
+*.opt.jpe
+*.opt.jfif
+*.opt.JPG
+*.opt.JPEG
+.jpegopt.tmp.*
 jpeg_corpora/
 Images/
 Images2/
 photochki18+/
+sample_11/

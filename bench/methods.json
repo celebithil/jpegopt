@@ -1,0 +1,780 @@
+{
+  "generated_by": "scripts/bench_summary.py",
+  "host_note": "see bench/README.md",
+  "corpora": {
+    "mixed3954": {
+      "note": "deterministic stride-52 sample of jpeg_corpora/all (COCO 2017 + Open Images v7 validation), run with --arith",
+      "files": 3954,
+      "errors": 0,
+      "original_bytes": 773016009,
+      "savings_pct_run": 10.9,
+      "savings_pct_huff_only": 5.559,
+      "wins": {
+        "progressive+arith-al6-dcplain": 1635,
+        "progressive+arith-al5-dcplain": 1129,
+        "progressive+arith-al4-dcplain": 626,
+        "progressive+arith-al4": 296,
+        "progressive+arith-al3-dcplain": 148,
+        "progressive+arith-al3": 49,
+        "progressive+arith-mozmax-al4": 36,
+        "progressive+arith-al2-dcplain": 14,
+        "progressive+arith-mozmax-al3": 6,
+        "progressive+arith-al2": 5,
+        "progressive+arith-mozmax-al3-chromasa": 3,
+        "progressive+arith-moz-default": 3,
+        "progressive+arith-dcplain": 2,
+        "progressive+arith-medium-al2": 1,
+        "progressive+arith-mozmax-split5-al3": 1
+      },
+      "methods": {
+        "progressive+arith-al6-dcplain": {
+          "files": 3954,
+          "wins": 1635,
+          "bytes": 688928737
+        },
+        "progressive+arith-al5-dcplain": {
+          "files": 3954,
+          "wins": 1129,
+          "bytes": 688984960
+        },
+        "progressive+arith-al4-dcplain": {
+          "files": 3954,
+          "wins": 626,
+          "bytes": 689608071
+        },
+        "progressive+arith-al3-dcplain": {
+          "files": 3954,
+          "wins": 148,
+          "bytes": 691432833
+        },
+        "progressive+arith-al4": {
+          "files": 3954,
+          "wins": 296,
+          "bytes": 692246363
+        },
+        "progressive+arith-al3": {
+          "files": 3954,
+          "wins": 49,
+          "bytes": 692624778
+        },
+        "progressive+arith-mozmax-al3-chromasa": {
+          "files": 3954,
+          "wins": 3,
+          "bytes": 694766635
+        },
+        "progressive+arith-al2-dcplain": {
+          "files": 3954,
+          "wins": 14,
+          "bytes": 695638835
+        },
+        "progressive+arith-al2": {
+          "files": 3954,
+          "wins": 5,
+          "bytes": 696044921
+        },
+        "progressive+arith-mozmax-al4": {
+          "files": 3954,
+          "wins": 36,
+          "bytes": 696288853
+        },
+        "progressive+arith": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 697710740
+        },
+        "progressive+arith-mozmax-al3": {
+          "files": 3954,
+          "wins": 6,
+          "bytes": 698103502
+        },
+        "progressive+arith-mozmax-split5-al3": {
+          "files": 3954,
+          "wins": 1,
+          "bytes": 698273537
+        },
+        "progressive+arith-medium-al2": {
+          "files": 3954,
+          "wins": 1,
+          "bytes": 700590438
+        },
+        "progressive+arith-mozmax": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 701574941
+        },
+        "progressive+arith-dcplain": {
+          "files": 3954,
+          "wins": 2,
+          "bytes": 704241923
+        },
+        "progressive+arith-min": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 704327975
+        },
+        "progressive+arith-superfine-al3": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 705901110
+        },
+        "progressive+arith-superfine-al2": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 705970447
+        },
+        "arith": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 719046597
+        },
+        "progressive+arith-moz-default": {
+          "files": 3954,
+          "wins": 3,
+          "bytes": 719078131
+        },
+        "progressive-mozmax-al4": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 731888740
+        },
+        "progressive-mozmax-al3": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 731926722
+        },
+        "progressive-mozmax-split5-al3": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 732430373
+        },
+        "progressive-mozmax-al3-chromasa": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 733096076
+        },
+        "progressive-mozmax": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 733518632
+        },
+        "progressive-mozmax-dcsa": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 733977400
+        },
+        "progressive-al4-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 734065645
+        },
+        "progressive-al3-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 734122550
+        },
+        "progressive-mozmax-split5": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 734275080
+        },
+        "progressive-mozmax-chromasa": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 734687986
+        },
+        "progressive-al5-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 734939393
+        },
+        "progressive": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 735311829
+        },
+        "progressive-al6-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 735983890
+        },
+        "progressive-al3": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 736380534
+        },
+        "progressive-al2-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 736693547
+        },
+        "progressive-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 745305187
+        },
+        "progressive-min": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 745763955
+        },
+        "progressive-medium-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 750486356
+        },
+        "progressive-moz-default": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 750519855
+        },
+        "progressive-bands-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 756829204
+        },
+        "progressive-bands": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 757287972
+        },
+        "progressive-fine": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 768444401
+        },
+        "progressive-moz-fast": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 771072395
+        },
+        "guetzli": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 772413177
+        }
+      }
+    },
+    "mixed3954-huff": {
+      "note": "same sample, run without --arith (Huffman only)",
+      "files": 3954,
+      "errors": 0,
+      "original_bytes": 773016009,
+      "savings_pct_run": 5.559,
+      "savings_pct_huff_only": 5.559,
+      "wins": {
+        "progressive-mozmax-al4": 1167,
+        "progressive-mozmax-al3": 859,
+        "progressive-mozmax": 434,
+        "progressive-mozmax-split5": 396,
+        "progressive-mozmax-split5-al3": 255,
+        "progressive-al4-dcplain": 178,
+        "progressive-al3-dcplain": 158,
+        "progressive": 114,
+        "progressive-mozmax-al3-chromasa": 110,
+        "progressive-al5-dcplain": 87,
+        "progressive-dcplain": 62,
+        "progressive-moz-default": 51,
+        "progressive-al2-dcplain": 46,
+        "progressive-mozmax-chromasa": 23,
+        "guetzli": 5,
+        "progressive-al6-dcplain": 4,
+        "progressive-mozmax-dcsa": 2,
+        "progressive-medium-dcplain": 2,
+        "progressive-al3": 1
+      },
+      "methods": {
+        "progressive-mozmax-al4": {
+          "files": 3954,
+          "wins": 1167,
+          "bytes": 731888740
+        },
+        "progressive-mozmax-al3": {
+          "files": 3954,
+          "wins": 859,
+          "bytes": 731926722
+        },
+        "progressive-mozmax-split5-al3": {
+          "files": 3954,
+          "wins": 255,
+          "bytes": 732430373
+        },
+        "progressive-mozmax-al3-chromasa": {
+          "files": 3954,
+          "wins": 110,
+          "bytes": 733096076
+        },
+        "progressive-mozmax": {
+          "files": 3954,
+          "wins": 434,
+          "bytes": 733518632
+        },
+        "progressive-mozmax-dcsa": {
+          "files": 3954,
+          "wins": 2,
+          "bytes": 733977400
+        },
+        "progressive-al4-dcplain": {
+          "files": 3954,
+          "wins": 178,
+          "bytes": 734065645
+        },
+        "progressive-al3-dcplain": {
+          "files": 3954,
+          "wins": 158,
+          "bytes": 734122550
+        },
+        "progressive-mozmax-split5": {
+          "files": 3954,
+          "wins": 396,
+          "bytes": 734275080
+        },
+        "progressive-mozmax-chromasa": {
+          "files": 3954,
+          "wins": 23,
+          "bytes": 734687986
+        },
+        "progressive-al5-dcplain": {
+          "files": 3954,
+          "wins": 87,
+          "bytes": 734939393
+        },
+        "progressive": {
+          "files": 3954,
+          "wins": 114,
+          "bytes": 735311829
+        },
+        "progressive-al6-dcplain": {
+          "files": 3954,
+          "wins": 4,
+          "bytes": 735983890
+        },
+        "progressive-al3": {
+          "files": 3954,
+          "wins": 1,
+          "bytes": 736380534
+        },
+        "progressive-al2-dcplain": {
+          "files": 3954,
+          "wins": 46,
+          "bytes": 736693547
+        },
+        "progressive-dcplain": {
+          "files": 3954,
+          "wins": 62,
+          "bytes": 745305187
+        },
+        "progressive-min": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 745763955
+        },
+        "progressive-medium-dcplain": {
+          "files": 3954,
+          "wins": 2,
+          "bytes": 750486356
+        },
+        "progressive-moz-default": {
+          "files": 3954,
+          "wins": 51,
+          "bytes": 750519855
+        },
+        "progressive-bands-dcplain": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 756829204
+        },
+        "progressive-bands": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 757287972
+        },
+        "progressive-fine": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 768444401
+        },
+        "progressive-moz-fast": {
+          "files": 3954,
+          "wins": 0,
+          "bytes": 771072395
+        },
+        "guetzli": {
+          "files": 3954,
+          "wins": 5,
+          "bytes": 772413177
+        }
+      }
+    },
+    "phone144": {
+      "note": "144 realme 15 5G 12 MP camera photos, run with --arith",
+      "files": 144,
+      "errors": 0,
+      "original_bytes": 579156880,
+      "savings_pct_run": 14.124,
+      "savings_pct_huff_only": 7.375,
+      "wins": {
+        "progressive+arith-al6-dcplain": 144
+      },
+      "methods": {
+        "progressive+arith-al6-dcplain": {
+          "files": 144,
+          "wins": 144,
+          "bytes": 497358487
+        },
+        "progressive+arith-al5-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 497498669
+        },
+        "progressive+arith-al4-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 498324148
+        },
+        "progressive+arith-al4": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 499513704
+        },
+        "progressive+arith-mozmax-al4": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 500006937
+        },
+        "progressive+arith-al3-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 501715188
+        },
+        "progressive+arith-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 501843833
+        },
+        "progressive+arith-mozmax-al3-chromasa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 502223729
+        },
+        "progressive+arith-mozmax-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 502898825
+        },
+        "progressive+arith-mozmax-split5-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 503028939
+        },
+        "progressive+arith-superfine-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 505160253
+        },
+        "progressive+arith-medium-al2": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 507629967
+        },
+        "progressive+arith-al2": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 507890094
+        },
+        "progressive+arith": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 508054185
+        },
+        "progressive+arith-al2-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 508142787
+        },
+        "progressive+arith-superfine-al2": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 508512485
+        },
+        "progressive+arith-mozmax": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 508641462
+        },
+        "progressive+arith-min": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 511561405
+        },
+        "progressive+arith-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 511769395
+        },
+        "arith": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 515853290
+        },
+        "progressive+arith-moz-default": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 516850369
+        },
+        "progressive-mozmax-al4": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 536444738
+        },
+        "progressive-al4-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537221062
+        },
+        "progressive-al5-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537406816
+        },
+        "progressive-al6-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537766156
+        },
+        "progressive-mozmax-al3-chromasa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537854348
+        },
+        "progressive-mozmax-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538179946
+        },
+        "progressive-mozmax-split5-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538475624
+        },
+        "progressive-al3-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538883799
+        },
+        "progressive-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 540508940
+        },
+        "progressive-al2-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544081984
+        },
+        "progressive-mozmax-chromasa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544373386
+        },
+        "progressive-mozmax": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544698984
+        },
+        "progressive-mozmax-split5": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544780222
+        },
+        "progressive-mozmax-dcsa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544860796
+        },
+        "progressive": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 545236415
+        },
+        "progressive-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 550125295
+        },
+        "progressive-min": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 550287107
+        },
+        "progressive-moz-default": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 555787172
+        },
+        "progressive-medium-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 556366536
+        },
+        "progressive-bands-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 561777260
+        },
+        "progressive-bands": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 561939072
+        },
+        "progressive-moz-fast": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 563306595
+        },
+        "guetzli": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 568291723
+        },
+        "progressive-fine": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 568891812
+        }
+      }
+    },
+    "phone144-huff": {
+      "note": "same photos, run without --arith (Huffman only)",
+      "files": 144,
+      "errors": 0,
+      "original_bytes": 579156880,
+      "savings_pct_run": 7.375,
+      "savings_pct_huff_only": 7.375,
+      "wins": {
+        "progressive-mozmax-al4": 144
+      },
+      "methods": {
+        "progressive-mozmax-al4": {
+          "files": 144,
+          "wins": 144,
+          "bytes": 536444738
+        },
+        "progressive-al4-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537221062
+        },
+        "progressive-al5-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537406816
+        },
+        "progressive-al6-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537766156
+        },
+        "progressive-mozmax-al3-chromasa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 537854348
+        },
+        "progressive-mozmax-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538179946
+        },
+        "progressive-mozmax-split5-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538475624
+        },
+        "progressive-al3-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 538883799
+        },
+        "progressive-al3": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 540508940
+        },
+        "progressive-al2-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544081984
+        },
+        "progressive-mozmax-chromasa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544373386
+        },
+        "progressive-mozmax": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544698984
+        },
+        "progressive-mozmax-split5": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544780222
+        },
+        "progressive-mozmax-dcsa": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 544860796
+        },
+        "progressive": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 545236415
+        },
+        "progressive-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 550125295
+        },
+        "progressive-min": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 550287107
+        },
+        "progressive-moz-default": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 555787172
+        },
+        "progressive-medium-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 556366536
+        },
+        "progressive-bands-dcplain": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 561777260
+        },
+        "progressive-bands": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 561939072
+        },
+        "progressive-moz-fast": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 563306595
+        },
+        "guetzli": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 568291723
+        },
+        "progressive-fine": {
+          "files": 144,
+          "wins": 0,
+          "bytes": 568891812
+        }
+      }
+    }
+  }
+}

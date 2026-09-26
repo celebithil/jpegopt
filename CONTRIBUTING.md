@@ -29,14 +29,25 @@ verified pixel-identical before it is considered a winner.
   (`SPDX-License-Identifier: Apache-2.0`) on every new file, 4-space indent,
   no unused includes, no code churn unrelated to the change.
 - **Keep documentation in sync.** If you add a CLI flag, update the usage text
-  in `src/cli.cpp` and the README. If you add a benchmark result, update
-  `README.md`.
+  in `src/cli.cpp`, `docs/cli.md` and the README block. If you change the
+  pipeline, check `docs/architecture.md` and `docs/limitations.md`. If you add a
+  benchmark result, update `docs/benchmarks.md` and the table in `README.md`.
+- **Adding a scan script is a measurement decision.** A new `ScanStyle` is kept
+  only if it wins at least one file in a corpus sweep; see
+  [docs/scan-scripts.md](docs/scan-scripts.md) for the exact procedure and the
+  list-pruning rule driven by `scripts/analyze_bench.py`.
 - **Do not modify vendored code.** `vendor/` contains exact upstream copies
   (libjpeg-turbo, guetzli). Any needed local patch belongs in our code, not a
   vendored file; if a vendored patch is truly unavoidable, document it in
-  `JPEGOPT_PATCH.md` and the `NOTICE` file as has been done for guetzli.
+  `JPEGOPT_PATCH.md` and the `NOTICE` file as has been done for guetzli. See
+  [vendor/README.md](vendor/README.md).
 
 ## Reporting issues
 
 Please include the command line used, the output of `jpegopt -V`, and — if a
-result is not pixel-identical — the source file (or a reduced reproducer).
+result is not pixel-identical — the source file (or a reduced reproducer). Use
+the issue templates: a pixel mismatch is a **correctness bug**, and reproducing
+it requires the triggering file, so please attach one.
+
+For security issues, do not open a public issue — see
+[SECURITY.md](SECURITY.md).

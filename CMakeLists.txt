@@ -59,7 +59,7 @@ add_dependencies(turbojpeg_static libjpeg_turbo)
 # self-contained entropy-coding files are compiled (no butteraugli/libpng).
 # Vendored in-tree (not a submodule) because it carries a local patch:
 # jpeg_data_reader.cc no-ops fprintf() so stdout/stderr stay clean under
-# multi-threaded runs (see vendor/guetzli/JPEGOPT_PATCH.md).
+# multi-threaded runs (see vendor/guetzli/guetzli/JPEGOPT_PATCH.md).
 # ---------------------------------------------------------------------------
 add_library(guetzli_enc STATIC
   ${GUETZLI_DIR}/guetzli/entropy_encode.cc
