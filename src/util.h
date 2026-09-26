@@ -11,12 +11,22 @@ namespace util {
 
 bool read_file(const std::string& path, std::vector<uint8_t>& out, std::string& err);
 bool write_file(const std::string& path, const std::vector<uint8_t>& data, std::string& err);
-// Writes data to a unique temp file next to `target`, then renames over it.
+// Writes data to a unique temp file, then moves it onto `target`.
 // The mode and timestamps of an existing `target` are preserved. When `target`
 // does not exist and `preserve_from` is non-empty, the mode/timestamps of that
-// file are copied instead (used by --preserve for fresh .opt.jpg outputs).
+// file are copied instead (used by --preserve for fresh <name>.opt.<ext>).
+//
+// `stage_dir` selects where the temp file is created. When empty (the default)
+// the temp file is created next to `target`, so the final move is a single
+// atomic rename. When set (--temp-dir), the data is staged there first; it is
+// then renamed into place if it lives on the same filesystem, or copied to a
+// temp file beside `target` and renamed otherwise.
 bool write_atomic(const std::string& target, const std::vector<uint8_t>& data,
-                  std::string& err, const std::string& preserve_from = "");
+                  std::string& err, const std::string& preserve_from = "",
+                  const std::string& stage_dir = "");
+// True when both paths live on the same filesystem, so rename(2) can move a
+// file between them atomically. Unreadable paths yield false.
+bool same_filesystem(const std::string& a, const std::string& b);
 bool file_exists(const std::string& path);
 uint64_t file_size(const std::string& path);
 

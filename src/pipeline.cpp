@@ -2,6 +2,9 @@
 
 #include "pipeline.h"
 
+#include <chrono>
+#include <cstdio>
+#include <mutex>
 #include <vector>
 
 #include "guetzli_encode.h"
@@ -49,17 +52,29 @@ void maybe_strip(std::vector<uint8_t>& bytes, const PipelineOptions& opts) {
     }
 }
 
+// --verbose diagnostics go to stderr so that stdout stays machine-readable
+// (--json). Serialised because workers run concurrently.
+void log_verbose(const PipelineOptions& opts, const std::string& line) {
+    if (!opts.verbose) return;
+    static std::mutex m;
+    std::lock_guard<std::mutex> lock(m);
+    fprintf(stderr, "[jpegopt] %s\n", line.c_str());
+}
+
 }  // namespace
+
 
 FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     FileResult res;
     res.path = path;
+    const auto started = std::chrono::steady_clock::now();
 
     std::vector<uint8_t> original;
     std::string err;
     if (!util::read_file(path, original, err)) {
         res.ok = false;
         res.error = err;
+        log_verbose(opts, path + ": ERROR " + err);
         return res;
     }
     res.original_size = original.size();
@@ -68,6 +83,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     if (!info.valid) {
         res.ok = false;
         res.error = info.error;
+        log_verbose(opts, path + ": ERROR " + info.error);
         return res;
     }
 
@@ -75,6 +91,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     if (!decode_rgb(original, reference, err)) {
         res.ok = false;
         res.error = "cannot decode source: " + err;
+        log_verbose(opts, path + ": ERROR cannot decode source: " + err);
         return res;
     }
 
@@ -82,6 +99,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     if (!util::make_temp_dir(opts.temp_dir, temp_dir, err)) {
         res.ok = false;
         res.error = err;
+        log_verbose(opts, path + ": ERROR " + err);
         return res;
     }
 
@@ -210,6 +228,13 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     for (const auto& c : candidates) {
         res.candidates.push_back(FileResult::CandidateInfo{c.method, c.bytes.size(), c.arith});
     }
+    if (opts.verbose) {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "%s: %zu/%d candidates verified",
+                 path.c_str(), candidates.size(),
+                 opts.allow_arith ? 45 : 24);
+        log_verbose(opts, buf);
+    }
 
     Candidate* best_huff = nullptr;
     Candidate* best_ac = nullptr;
@@ -255,18 +280,43 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
                     std::string out_path = opts.in_place ? path : util::output_path_for(path);
                     const std::string preserve_from =
                         (opts.preserve && !opts.in_place) ? path : "";
-                    if (!util::write_atomic(out_path, winner->bytes, err, preserve_from)) {
+                    if (!util::write_atomic(out_path, winner->bytes, err, preserve_from,
+                                            temp_dir)) {
                         res.ok = false;
                         res.error = err;
+                        log_verbose(opts, path + ": ERROR " + err);
                         util::remove_all(temp_dir);
                         return res;
                     }
+                    log_verbose(opts, path + ": wrote " + out_path);
                 }
+            } else {
+                char buf[256];
+                snprintf(buf, sizeof(buf), "%s: kept original, %.2f%% < threshold %.2f%%",
+                         path.c_str(), savings_pct, opts.min_savings_pct);
+                log_verbose(opts, buf);
             }
         }
     }
 
     res.ok = true;
+    {
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - started)
+                            .count();
+        char buf[512];
+        snprintf(buf, sizeof(buf), "%s: %llu -> %llu (-%.2f%%) via %s in %lldms%s",
+                 path.c_str(), static_cast<unsigned long long>(res.original_size),
+                 static_cast<unsigned long long>(res.best_size),
+                 res.original_size
+                     ? 100.0 * (1.0 - static_cast<double>(res.best_size) /
+                                         static_cast<double>(res.original_size))
+                     : 0.0,
+                 res.method.empty() ? "none" : res.method.c_str(),
+                 static_cast<long long>(ms),
+                 res.arith_fell_back ? " [arith->huff]" : "");
+        log_verbose(opts, buf);
+    }
     util::remove_all(temp_dir);
     return res;
 }

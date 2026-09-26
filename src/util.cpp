@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -59,15 +60,42 @@ bool write_file(const std::string& path, const std::vector<uint8_t>& data, std::
     return true;
 }
 
+namespace {
+
+// Monotonic per-process counter, so two outputs in the same directory written
+// by the same run can never collide on a temp-file name.
+unsigned long next_temp_seq() {
+    static std::atomic<unsigned long> seq{0};
+    return ++seq;
+}
+
+std::string temp_name(const std::string& dir) {
+    return dir + "/.jpegopt.tmp." + std::to_string(static_cast<long long>(getpid())) + "." +
+           std::to_string(next_temp_seq());
+}
+
+}  // namespace
+
+bool same_filesystem(const std::string& a, const std::string& b) {
+    struct stat sa;
+    struct stat sb;
+    if (a.empty() || b.empty()) return false;
+    if (stat(a.c_str(), &sa) != 0) return false;
+    if (stat(b.c_str(), &sb) != 0) return false;
+    return sa.st_dev == sb.st_dev;
+}
+
 bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, std::string& err,
-                  const std::string& preserve_from) {
+                  const std::string& preserve_from, const std::string& stage_dir) {
     std::filesystem::path tp(target);
-    std::string tmp = tp.parent_path().string() + "/.jpegopt.tmp." +
-                      std::to_string(static_cast<long long>(getpid())) + "." +
-                      std::to_string(static_cast<long long>(time(nullptr)));
+    const std::string target_dir = tp.parent_path().string();
+    // Default: stage beside the target, so publishing is a single rename(2).
+    const bool staged_elsewhere = !stage_dir.empty();
+    const std::string tmp = staged_elsewhere ? temp_name(stage_dir) : temp_name(target_dir);
     if (!write_file(tmp, data, err)) {
         return false;
     }
+
     struct stat st;
     bool have = stat(target.c_str(), &st) == 0;
     if (!have && !preserve_from.empty()) {
@@ -76,10 +104,31 @@ bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, s
     if (have) {
         chmod(tmp.c_str(), st.st_mode & 07777);
     }
-    if (rename(tmp.c_str(), target.c_str()) != 0) {
+
+    // Publish. On the same filesystem the staged file is renamed straight over
+    // the target; across filesystems it is copied to a temp file beside the
+    // target first, so the final visible step stays an atomic rename.
+    std::string publish = tmp;
+    bool copied = false;
+    if (staged_elsewhere && !same_filesystem(stage_dir, target_dir)) {
+        publish = temp_name(target_dir);
+        if (!write_file(publish, data, err)) {
+            remove(tmp.c_str());
+            return false;
+        }
+        if (have) {
+            chmod(publish.c_str(), st.st_mode & 07777);
+        }
+        copied = true;
+    }
+    if (rename(publish.c_str(), target.c_str()) != 0) {
         err = "cannot rename to " + target;
-        remove(tmp.c_str());
+        remove(publish.c_str());
+        if (copied) remove(tmp.c_str());
         return false;
+    }
+    if (copied) {
+        remove(tmp.c_str());
     }
     if (have) {
         struct timespec times[2];
