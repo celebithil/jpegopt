@@ -34,7 +34,7 @@ twice and reports it twice.
 |---|---|---|
 | `--arith` | off | Add 20 progressive + 1 sequential arithmetic-coding candidates (45 total instead of 24). Arithmetic output is used only when strictly smaller. See [limitations.md](limitations.md). |
 | `-T, --threshold N` | `0` | Keep the original unless savings reach `N%`. Accepts decimals (`2.5`). Values outside `[0, 100]` are rejected. `0` means "write whenever the candidate is smaller". |
-| `-t, --threads N` | `cores/4`, clamped to 1–4 | Worker threads. |
+| `-t, --threads N` | `cores/4`, clamped to 1–4 | Worker threads. `N` must be a non-negative integer; anything else (including a negative value) is rejected with exit 2. `0` selects the automatic pool. Values above the cap (64) are clamped, not rejected, so `-t $(nproc)` stays harmless on large hosts. |
 | `--temp-dir PATH` | system temp | Directory for jpegopt's temporary files. The winning result is staged there before being published, so on a different filesystem from the output it is copied across and then renamed into place. Defaults to a per-process directory under the system temp dir. |
 
 ### Metadata
@@ -79,6 +79,10 @@ command-line order followed by list order.
 | `-V, --version` | — | Print the version and exit 0. |
 | `-h, --help` | — | Print usage and exit 0. |
 
+`--version`/`--help` win over the rest of the line, but option parsing is a
+single pass, so an unknown option is still reported (exit 2) before `-V`/`-h`
+takes effect — `jpegopt --version --nope` fails.
+
 ## Exit codes
 
 | Code | Meaning |
@@ -89,6 +93,19 @@ command-line order followed by list order.
 
 ## Interactions worth knowing
 
+- `method` and `arith` in the JSON report are empty/`false` whenever no smaller
+  verified candidate was **selected** — including when the threshold blocked it.
+  A non-empty `method` with `changed: false` means "a smaller candidate existed,
+  but `-T` kept the original".
+- `--strip-metadata` fills `stripped_markers` with the categories it removes
+  (the source is classified against an all-categories policy), so it is no
+  longer empty on a file that carries strippable markers.
+- `-t` bounds are validated (see the Search control table); `-T` rejects values
+  outside `[0, 100]`.
+- In-place (`-i`) publishing goes through the same atomic temp-file + `rename`
+  path as every other write, so the source inode is replaced: a read-only file
+  is still swapped out, and a hardlinked source loses its extra link. See
+  [limitations.md](limitations.md).
 - `--strip-metadata` + any `--strip-*`: the granular flags are redundant.
 - `--dry-run` + `--json`: the standard way to measure. `changed` is `true` for
   files that would improve — nothing is written, so re-read the inputs after a

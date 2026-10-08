@@ -14,8 +14,10 @@ coding enabled (see [Benchmarks](docs/benchmarks.md)).
 ## Features
 
 - **Lossless by construction** — every candidate is decoded and compared
-  pixel-for-pixel against the source before it is counted. A candidate that
-  fails verification is silently discarded.
+  pixel-for-pixel against the source before it is counted. Comparison happens in
+  the source's **own colour model and bit depth** (grayscale, RGB, CMYK, or
+  12-bit), so a candidate that fails verification is silently discarded without
+  a lossy conversion hiding the difference.
 - **23 progressive-Huffman scan scripts** — including the mozjpeg *max
   compression*, *default* and *fast* families
   ([docs/scan-scripts.md](docs/scan-scripts.md)).
@@ -23,6 +25,10 @@ coding enabled (see [Benchmarks](docs/benchmarks.md)).
   Huffman tables.
 - **Optional arithmetic coding** — 20 progressive + 1 sequential scripts
   (off by default; see [Arithmetic coding](#arithmetic-coding)).
+- **Grayscale, RGB and CMYK sources** — all optimized in their own colour model.
+- **12-bit sources** — optimized losslessly through TurboJPEG's transform path
+  (one candidate, precision preserved; see
+  [docs/limitations.md](docs/limitations.md)).
 - **Granular metadata stripping** — EXIF, XMP, ICC, IPTC, Adobe, JFIF/JFXX,
   comments, or all of them ([docs/metadata-stripping.md](docs/metadata-stripping.md)).
 - **Threshold mode** — keep the original unless savings reach N%.

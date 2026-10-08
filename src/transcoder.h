@@ -73,3 +73,11 @@ struct TranscodeOptions {
 // failure.
 bool lossless_transcode(const std::vector<uint8_t>& src, const TranscodeOptions& opt,
                         std::vector<uint8_t>& out, std::string& err);
+
+// Lossless transcode for sources the jpeglib coefficient path cannot handle,
+// notably 12-bit-per-sample JPEG. Uses TurboJPEG's tj3Transform, which rewrites
+// the entropy coding (progressive + optimized Huffman) while keeping the DCT
+// coefficients, precision and colour model untouched. Only the
+// precision-preserving options are honoured; arithmetic coding is not applied.
+bool lossless_transcode_tj(const std::vector<uint8_t>& src, bool strip_metadata,
+                           std::vector<uint8_t>& out, std::string& err);

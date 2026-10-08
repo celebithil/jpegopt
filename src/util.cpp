@@ -31,7 +31,13 @@ bool read_file(const std::string& path, std::vector<uint8_t>& out, std::string& 
         err = "cannot tell " + path;
         return false;
     }
-    fseek(f, 0, SEEK_SET);
+    // Seek back to the start before reading the payload. Not all streams are
+    // seekable, so a failure here is fatal rather than ignored.
+    if (fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        err = "cannot seek " + path;
+        return false;
+    }
     out.resize(static_cast<size_t>(size));
     if (!out.empty() && fread(out.data(), 1, out.size(), f) != out.size()) {
         fclose(f);
@@ -88,7 +94,12 @@ bool same_filesystem(const std::string& a, const std::string& b) {
 bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, std::string& err,
                   const std::string& preserve_from, const std::string& stage_dir) {
     std::filesystem::path tp(target);
-    const std::string target_dir = tp.parent_path().string();
+    // A bare filename (no directory component) yields an empty parent path;
+    // fall back to "." so the temp file is staged beside the target instead of
+    // in the filesystem root.
+    const std::string target_dir = tp.parent_path().string().empty()
+                                       ? "."
+                                       : tp.parent_path().string();
     // Default: stage beside the target, so publishing is a single rename(2).
     const bool staged_elsewhere = !stage_dir.empty();
     const std::string tmp = staged_elsewhere ? temp_name(stage_dir) : temp_name(target_dir);
@@ -142,20 +153,6 @@ bool write_atomic(const std::string& target, const std::vector<uint8_t>& data, s
 bool file_exists(const std::string& path) {
     struct stat st;
     return stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
-}
-
-uint64_t file_size(const std::string& path) {
-    struct stat st;
-    if (stat(path.c_str(), &st) != 0) return 0;
-    return static_cast<uint64_t>(st.st_size);
-}
-
-std::string self_path() {
-    char buf[4096];
-    ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (n <= 0) return "";
-    buf[n] = '\0';
-    return std::string(buf);
 }
 
 std::string format_bytes(uint64_t bytes) {

@@ -24,7 +24,7 @@ struct Candidate {
 bool verify_candidate(const DecodedImage& reference,
                       const std::vector<uint8_t>& candidate_bytes, std::string& err) {
     DecodedImage cand;
-    if (!decode_rgb(candidate_bytes, cand, err)) {
+    if (!decode_native(candidate_bytes, cand, err)) {
         return false;
     }
     if (!same_image(reference, cand)) {
@@ -88,12 +88,18 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     }
 
     DecodedImage reference;
-    if (!decode_rgb(original, reference, err)) {
+    if (!decode_native(original, reference, err)) {
         res.ok = false;
         res.error = "cannot decode source: " + err;
         log_verbose(opts, path + ": ERROR cannot decode source: " + err);
         return res;
     }
+
+    // 12-bit sources cannot go through the jpeglib coefficient path (the
+    // vendored build has no 12-bit coefficient API), so they take a separate
+    // TurboJPEG transform route: still lossless, but limited to a single
+    // progressive-Huffman candidate.
+    const bool high_precision = reference.bytes_per_sample > 1;
 
     std::string temp_dir;
     if (!util::make_temp_dir(opts.temp_dir, temp_dir, err)) {
@@ -179,12 +185,26 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
         }
     };
     for (const auto& s : huff_styles) {
-        add_progressive(s.style, s.tag, false);
+        if (!high_precision) add_progressive(s.style, s.tag, false);
+    }
+
+    // 12-bit route: one progressive-Huffman candidate via TurboJPEG. The
+    // scan-script family and arithmetic coding are unavailable here, so this is
+    // the only candidate such a source can produce.
+    if (high_precision) {
+        std::vector<uint8_t> t;
+        std::string terr;
+        if (lossless_transcode_tj(original, opts.strip_metadata, t, terr)) {
+            maybe_strip(t, opts);
+            add_if_valid(Candidate{"progressive-12bit", false, std::move(t)}, reference,
+                         candidates);
+        }
     }
 
     // C3: guetzli sequential encoder with cost-clustered Huffman tables
-    // (an independent, fully different re-encode path).
-    {
+    // (an independent, fully different re-encode path). 12-bit sources are
+    // rejected by guetzli's reader, so it is skipped for them.
+    if (!high_precision) {
         std::vector<uint8_t> t;
         std::string terr;
         if (guetzli_encode(original, opts.strip_metadata, t, terr)) {
@@ -194,7 +214,7 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
         }
     }
 
-    if (opts.allow_arith) {
+    if (opts.allow_arith && !high_precision) {
         // C4a: sequential arithmetic coding.
         {
             std::vector<uint8_t> t;
@@ -230,9 +250,9 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
     }
     if (opts.verbose) {
         char buf[256];
+        const int expected = high_precision ? 1 : (opts.allow_arith ? 45 : 24);
         snprintf(buf, sizeof(buf), "%s: %zu/%d candidates verified",
-                 path.c_str(), candidates.size(),
-                 opts.allow_arith ? 45 : 24);
+                 path.c_str(), candidates.size(), expected);
         log_verbose(opts, buf);
     }
 
@@ -260,13 +280,16 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
 
     res.best_size = res.original_size;
     res.strip_metadata = opts.strip_metadata;
-    MarkerStripped stripped = classify_strippable(original, opts.markers);
+    MarkerStripped stripped = classify_strippable(
+        original, opts.strip_metadata ? MarkerPolicy::all() : opts.markers);
     if (stripped.any()) {
         res.stripped_markers = stripped.summary();
     }
-    if (winner) {
+    if (winner && winner->bytes.size() < res.original_size) {
         res.method = winner->method;
         res.arith_used = arith_used;
+    }
+    if (winner) {
         if (winner->bytes.size() < res.original_size) {
             const double savings_pct =
                 100.0 * (1.0 - static_cast<double>(winner->bytes.size()) /
@@ -305,16 +328,30 @@ FileResult process_file(const std::string& path, const PipelineOptions& opts) {
                             std::chrono::steady_clock::now() - started)
                             .count();
         char buf[512];
-        snprintf(buf, sizeof(buf), "%s: %llu -> %llu (-%.2f%%) via %s in %lldms%s",
-                 path.c_str(), static_cast<unsigned long long>(res.original_size),
-                 static_cast<unsigned long long>(res.best_size),
-                 res.original_size
-                     ? 100.0 * (1.0 - static_cast<double>(res.best_size) /
-                                         static_cast<double>(res.original_size))
-                     : 0.0,
-                 res.method.empty() ? "none" : res.method.c_str(),
-                 static_cast<long long>(ms),
-                 res.arith_fell_back ? " [arith->huff]" : "");
+        if (res.changed) {
+            snprintf(buf, sizeof(buf), "%s: %llu -> %llu (-%.2f%%) via %s in %lldms%s",
+                     path.c_str(), static_cast<unsigned long long>(res.original_size),
+                     static_cast<unsigned long long>(res.best_size),
+                     res.original_size
+                         ? 100.0 * (1.0 - static_cast<double>(res.best_size) /
+                                             static_cast<double>(res.original_size))
+                         : 0.0,
+                     res.method.c_str(),
+                     static_cast<long long>(ms),
+                     res.arith_fell_back ? " [arith->huff]" : "");
+        } else if (!res.method.empty()) {
+            // A smaller candidate existed but the threshold blocked the write;
+            // the reason was already logged above, so do not claim it as a win.
+            snprintf(buf, sizeof(buf),
+                     "%s: kept original (%llu B), below threshold in %lldms",
+                     path.c_str(), static_cast<unsigned long long>(res.original_size),
+                     static_cast<long long>(ms));
+        } else {
+            snprintf(buf, sizeof(buf),
+                     "%s: kept original (%llu B), no smaller candidate in %lldms",
+                     path.c_str(), static_cast<unsigned long long>(res.original_size),
+                     static_cast<long long>(ms));
+        }
         log_verbose(opts, buf);
     }
     util::remove_all(temp_dir);

@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "jpeglib.h"
+#include "turbojpeg.h"
 
 extern "C" {
 #include "transupp.h"
@@ -330,5 +331,53 @@ bool lossless_transcode(const std::vector<uint8_t>& src, const TranscodeOptions&
     jpeg_finish_decompress(&srcinfo);
     jpeg_destroy_compress(&dstinfo);
     jpeg_destroy_decompress(&srcinfo);
+    return true;
+}
+
+bool lossless_transcode_tj(const std::vector<uint8_t>& src, bool strip_metadata,
+                           std::vector<uint8_t>& out, std::string& err) {
+    out.clear();
+    if (src.empty()) {
+        err = "empty input";
+        return false;
+    }
+
+    tjhandle handle = tj3Init(TJINIT_TRANSFORM);
+    if (!handle) {
+        err = "tj3Init failed";
+        return false;
+    }
+
+    if (tj3DecompressHeader(handle, src.data(), src.size()) != 0) {
+        err = std::string("header: ") + tj3GetErrorStr(handle);
+        tj3Destroy(handle);
+        return false;
+    }
+
+    tjtransform t;
+    memset(&t, 0, sizeof(t));
+    // No geometric transform: rewrite the entropy coding only. Progressive
+    // implies optimized Huffman coding, which is the whole point here.
+    t.options = TJXOPT_PROGRESSIVE;
+    if (strip_metadata) t.options |= TJXOPT_COPYNONE;
+
+    unsigned char* buf = nullptr;
+    size_t size = 0;
+    if (tj3Transform(handle, src.data(), src.size(), 1, &buf, &size, &t) != 0) {
+        err = std::string("transform: ") + tj3GetErrorStr(handle);
+        tj3Free(buf);
+        tj3Destroy(handle);
+        return false;
+    }
+    if (!buf || size == 0) {
+        err = "transform produced no data";
+        tj3Free(buf);
+        tj3Destroy(handle);
+        return false;
+    }
+
+    out.assign(buf, buf + size);
+    tj3Free(buf);
+    tj3Destroy(handle);
     return true;
 }

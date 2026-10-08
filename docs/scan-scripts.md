@@ -33,9 +33,9 @@ survivors of measurement, not of guesswork: a script that never produced the
 smallest verified result on the corpus was removed because it only cost time.
 
 The sets differ between modes because the ranking differs: a script that never
-won under Huffman coding may still win under arithmetic coding. That is why,
-for example, `kSuperFineAl2` is arithmetic-only while `kFewScanAl3` is
-Huffman-only.
+won under Huffman coding may still win under arithmetic coding, and vice versa.
+That is why, for example, `kSuperFineAl2` is arithmetic-only while `kFineBands`
+is Huffman-only (the `H`/`A` columns below are the authoritative record).
 
 ## The scripts
 
@@ -71,7 +71,7 @@ not used by any candidate.
 | `kMediumBandsDcPlain` | ● | — | DC plain, medium AC bands |
 | `kMediumBandsAl2` | — | ● | medium AC bands, Al=2 |
 | `kMozDefault` | ● | ● | mozjpeg `JCP_DEFAULT` |
-| `kMozFast` | ● | ● | mozjpeg `JCP_FAST` |
+| `kMozFast` | ● | — | mozjpeg `JCP_FAST` |
 | `kSuperFineAl2` | — | ● | super-fine AC bands, Al=2 |
 | `kSuperFineAl2DcPlain` | — | — | super-fine AC bands, Al=2, DC plain |
 | `kSuperFineAl3` | — | ● | super-fine AC bands, Al=3 |

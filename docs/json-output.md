@@ -44,11 +44,11 @@ $ jpegopt --dry-run --json photo.jpg
 | `ok` | bool | `false` if the file could not be processed at all (unreadable, not a JPEG, decoder failure). See `error`. |
 | `changed` | bool | `true` when a verified, smaller candidate was **selected**. This is also `true` under `--dry-run`, where nothing is written — it means "an improvement was found", not "a file was rewritten". |
 | `strip_metadata` | bool | `true` when the run used `--strip-metadata` (all markers removed). |
-| `stripped_markers` | string | Comma-separated list of marker categories the policy *would* remove from the source: `jfif`, `jfxx`, `exif`, `xmp`, `icc`, `iptc`, `adobe`, `com`. Empty when no category matched. See note below. |
+| `stripped_markers` | string | Comma-separated list of marker categories the policy *would* remove from the source: `jfif`, `jfxx`, `exif`, `xmp`, `icc`, `iptc`, `adobe`, `com`. Empty when no category matched. Under `--strip-metadata` the source is classified against an all-categories policy, so this lists every strippable category present. See note below. |
 | `original_size` | int | Size of the input file in bytes. |
 | `best_size` | int | Size of the smallest verified candidate, **or `original_size` when nothing beat the source**. Never larger than `original_size`. |
-| `method` | string | Tag of the winning candidate (e.g. `progressive-mozmax-al4`), or empty when no candidate beat the source. See [scan-scripts.md](scan-scripts.md) for the tag vocabulary. |
-| `arith` | bool | `true` when the winner is an arithmetic-coded candidate. |
+| `method` | string | Tag of the winning candidate (e.g. `progressive-mozmax-al4`), or empty when no smaller candidate was **selected** — which includes the threshold case. See [scan-scripts.md](scan-scripts.md) for the tag vocabulary. |
+| `arith` | bool | `true` when the winner is an arithmetic-coded candidate. `false` whenever `method` is empty. |
 | `arith_fell_back` | bool | `true` when an arithmetic candidate existed but was **not** used because it was not strictly smaller than the best Huffman candidate. |
 | `error` | string | Human-readable error text; empty when `ok` is `true`. |
 | `candidates` | object | Map of candidate tag → size in bytes, for every **verified** candidate. |
@@ -77,7 +77,9 @@ JSON mode; the flag only affects the human-readable text report.
 **`stripped_markers` is a prediction, not a receipt.** It is computed by
 classifying the *source* against the requested policy, independently of which
 candidate won and whether anything was written
-(the `classify_strippable` call in `process_file`).
+(the `classify_strippable` call in `process_file`). Under `--strip-metadata` the
+policy used for this prediction is "all categories", so the field lists what the
+fast path would drop rather than staying empty.
 
 **`candidates` is the per-file cost of the search.** Its size is the number of
 candidates that produced a verified result — useful for spotting inputs where

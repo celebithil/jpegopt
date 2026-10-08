@@ -51,17 +51,47 @@ grayscale or CMYK sources a generic all-component form is emitted instead
 (the `ncomps != 3` branch of `add_mozmax_script`). Such images therefore compress slightly worse
 under those candidates. Nothing fails; the results are still valid and verified.
 
-## 12-bit JPEG is not supported
+## 12-bit JPEG: supported, but only one candidate
 
-The vendored libjpeg-turbo is configured with `WITH_12BIT=OFF`
-(`CMakeLists.txt:43`), so 12-bit-per-sample files are rejected. This is not a
-lossless-optimization decision; the build simply does not include 12-bit
-support.
+12-bit-per-sample sources **are** optimized. libjpeg-turbo 3.0.x ships 12-bit
+support unconditionally (there is no `WITH_12BIT` option; an earlier
+`-DWITH_12BIT=OFF` in this repo was silently ignored), and the pipeline handles
+them through a separate route.
+
+The vendored build has no 12-bit *coefficient* API (`jpeg12_read_coefficients`
+is not compiled), so 12-bit sources cannot go through the jpeglib transcode path
+that produces the 23 progressive scan-script candidates. Instead they are
+re-encoded with TurboJPEG's `tj3Transform` (progressive + optimized Huffman,
+coefficients untouched), reported as the single candidate
+`progressive-12bit`. Verification decodes both sides at 12-bit precision and
+compares sample-for-sample, so the result is still provably lossless.
+
+Practical consequences for a 12-bit source:
+
+- exactly **one** candidate is produced, not 24/45;
+- `--arith` is ignored (arithmetic coding is unavailable on this route);
+- the savings are correspondingly smaller than for 8-bit camera JPEGs;
+- guetzli is not attempted (its reader only understands 8-bit Huffman input).
+
+16-bit-per-sample JPEG is rejected.
+
+## Colour models
+
+Grayscale, RGB/YCbCr, RGB and CMYK sources are all optimized losslessly. The
+verification decodes a candidate back into the **source's own** colour model and
+bit depth — CMYK stays 4-channel, grayscale stays single-channel — rather than
+converting to RGB. Comparing in the source's model is what makes "pixel
+identical" a meaningful claim: a conversion would hide differences the encoder
+could legitimately introduce.
+
+Earlier versions decoded everything to RGB, which made CMYK sources fail with
+`tjDecompress2: Unsupported color conversion request`; such files are now
+processed normally.
 
 ## POSIX/Linux only
 
-The code uses `fcntl.h`, `sys/stat.h`, `unistd.h`, `getpid`, `chmod`, `rename`,
-`utimensat` and `readlink("/proc/self/exe")` (`src/util.cpp`). It builds and
+The code uses `fcntl.h`, `sys/stat.h`, `unistd.h`, `getpid`, `chmod`, `rename`
+and `utimensat` (`src/util.cpp`). It builds and
 runs on Linux and other POSIX hosts; Windows and non-Linux POSIX systems
 (`/proc` absent) will not build or run as is. CI covers Ubuntu only.
 
@@ -103,3 +133,26 @@ errors, never silently "optimized".
 Default workers = `cores / 4`, clamped to `[1, 4]`. On a 64-core machine
 jpegopt uses 4 threads by default. This is intentional (large per-file buffers),
 but it means `-t` is worth setting on big corpora.
+
+`-t N` requires a non-negative integer (`abc`, `2x`, `-3` are rejected with exit
+2) and is clamped to a hard ceiling of 64 workers. Each worker holds a decoded
+reference frame plus the candidate set for its file, so memory scales with the
+worker count: on 12 MP photos, roughly 1 GB resident at `-t 4` and ~3–4 GB at
+the default-uncapped sizes seen before the cap. The ceiling exists so a typo like
+`-t 1000000` cannot exhaust the machine.
+
+## In-place writes replace the file's inode
+
+Every published result — including `-i/--in-place` — is written to a temporary
+file and atomically renamed over the destination. Two consequences are worth
+knowing, and neither is a bug:
+
+- **A read-only source is still replaced.** The rename does not need write
+  permission on the file, only on its directory. The original mode is copied to
+  the replacement, so a `444` file stays `444` — but its contents changed.
+- **Hardlinks are broken.** After an in-place run the source path points at a new
+  inode, so any other name hardlinked to it keeps the old contents. Copy instead
+  of hardlink if you rely on that linkage.
+
+The same applies to fresh `<name>.opt.<ext>` outputs, except that the original is
+left untouched, so only the "new inode" aspect applies.

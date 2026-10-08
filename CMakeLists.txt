@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(jpegopt VERSION 1.0.0 LANGUAGES C CXX)
+project(jpegopt VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,13 +34,19 @@ ExternalProject_Add(libjpeg_turbo
     -DCMAKE_INSTALL_PREFIX=${TURBO_PREFIX}
     -DCMAKE_INSTALL_LIBDIR=lib
     -DCMAKE_BUILD_TYPE=Release
+    # Forward the caller's flags so a sanitizer build instruments the vendored
+    # decoder too. Without this the CI sanitizers job only covers src/, while
+    # the JPEG parsing of untrusted input happens inside libjpeg-turbo.
+    -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+    -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
     -DENABLE_SHARED=OFF
     -DENABLE_STATIC=ON
     -DWITH_TURBOJPEG=ON
     -DWITH_JAVA=OFF
     -DWITH_TESTS=OFF
     -DWITH_FUZZ=OFF
-    -DWITH_12BIT=OFF
+    # libjpeg-turbo 3.0.x ships 12-bit support unconditionally; there is no
+    # WITH_12BIT option (an earlier -DWITH_12BIT=OFF here was silently ignored).
     -DWITH_SIMD=ON
     -DREQUIRE_SIMD=OFF
   BUILD_BYPRODUCTS
@@ -101,5 +107,8 @@ if(JPEGOPT_BUILD_TESTS)
   enable_testing()
   add_executable(roundtrip_test tests/roundtrip_test.cpp)
   target_link_libraries(roundtrip_test PRIVATE jpegopt_core)
+  # The suite's CLI-contract checks (exit codes, --json/--help/--version)
+  # drive the built tool, so make sure it exists before the test runs.
+  add_dependencies(roundtrip_test jpegopt)
   add_test(NAME roundtrip COMMAND roundtrip_test)
 endif()

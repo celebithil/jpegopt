@@ -1,6 +1,6 @@
 {
   "generated_by": "scripts/bench_summary.py",
-  "host_note": "see bench/README.md",
+  "host_note": "see bench/summary.md (Environment section)",
   "corpora": {
     "mixed3954": {
       "note": "deterministic stride-52 sample of jpeg_corpora/all (COCO 2017 + Open Images v7 validation), run with --arith",

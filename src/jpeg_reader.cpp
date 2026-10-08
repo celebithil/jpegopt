@@ -19,6 +19,12 @@ constexpr uint8_t kSof9 = 0xC9;  // extended sequential, arithmetic
 constexpr uint8_t kSof10 = 0xCA; // progressive, arithmetic
 constexpr uint8_t kSof11 = 0xCB; // lossless, arithmetic
 
+// 0xC0..0xCF is not a contiguous SOF range: 0xC4 (DHT), 0xC8 (JPG) and
+// 0xCC (DAC) are not frame headers, so the numeric span must be filtered.
+bool is_sof_marker(uint8_t code) {
+    return code >= kSof0 && code <= kSof11 && code != 0xC4 && code != 0xC8 && code != 0xCC;
+}
+
 }  // namespace
 
 JpegInfo read_jpeg_info(const std::vector<uint8_t>& data) {
@@ -66,7 +72,7 @@ JpegInfo read_jpeg_info(const std::vector<uint8_t>& data) {
             if (code == kSof2) info.is_progressive = true;
             if (code == kSof9 || code == kSof10 || code == kSof11) info.is_arithmetic = true;
 
-            if (!have_frame && pos + 9 <= data.size()) {
+            if (!have_frame && is_sof_marker(code) && pos + 9 <= data.size()) {
                 have_frame = true;
                 info.precision = data[pos + 4];
                 info.height = (data[pos + 5] << 8) | data[pos + 6];
@@ -203,11 +209,16 @@ bool extract_scan_script(const std::vector<uint8_t>& data, std::vector<JpegScan>
 
         if (c == kSos) {
             const size_t seg = pos;
-            if (seg + 4 > data.size()) return false;
+            // The SOS segment needs bytes up to seg+4 (Ns) and, once the
+            // payload length is known, the 3 spectral-selector bytes.
+            if (seg + 5 > data.size()) return false;
             const size_t len = (data[seg + 2] << 8) | data[seg + 3];
             const int ns = data[seg + 4];
             // SOS payload: Ns, Ns*(cs, td/ta), Ss, Se, Ah/Al.
             if (len < 2 + 1 + 2 * ns + 3 || seg + 2 + len > data.size()) return false;
+            // The component-id bytes live inside the segment the length above
+            // already proved present, so this loop cannot read past data.size().
+            if (seg + 5 + 2 * static_cast<size_t>(ns) + 3 > seg + 2 + len) return false;
             JpegScan s;
             s.comps.reserve(ns);
             for (int i = 0; i < ns; ++i) {

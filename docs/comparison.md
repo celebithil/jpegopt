@@ -36,10 +36,12 @@ the extra few percent. A tool that already tries several scripts (some
 `jpegoptim` builds, ImageOptim-style orchestrators) closes part of the gap but
 still does not verify pixels.
 
-**Verification costs a decode.** Every candidate is decoded to RGB and compared.
-That is the price of the "lossless by construction" claim; it also means
-incompatible inputs (CMYK, 12-bit, arithmetic sources for guetzli) degrade
-gracefully — the candidate is dropped, not written.
+**Verification costs a decode.** Every candidate is decoded back into the
+source's own colour model and compared. That is the price of the "lossless by
+construction" claim; it also means a source class the build cannot re-encode
+(for example an arithmetic-coded file on the guetzli path, or 16-bit precision)
+degrades gracefully — the candidate is dropped, not written. CMYK and 12-bit
+sources are supported; see [limitations.md](limitations.md).
 
 **No lossy mode.** jpegopt is deliberately lossless-only. jpegoptim (`-m`,
 `-S`), guetzli, ECT and ImageOptim's "lossy" mode trade pixels for size; if you

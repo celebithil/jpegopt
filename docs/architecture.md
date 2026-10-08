@@ -86,7 +86,9 @@ deterministic regardless of scheduling.
 
 Default pool size is `cores / 4`, clamped to `[1, 4]`
 (the thread-pool sizing block in `src/main.cpp`) — the per-file workload is large, so oversubscribing
-cores costs more than it gains. `-t N` overrides.
+cores costs more than it gains. `-t N` overrides, subject to a ceiling of 64
+workers and a non-negative-integer check (`src/cli.cpp`); see
+[limitations.md](limitations.md) for the memory reasoning.
 
 libjpeg error handling uses `setjmp`/`longjmp` across the C boundary, with the
 `jpeg_error_mgr` state in `thread_local` storage

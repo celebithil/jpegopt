@@ -57,6 +57,22 @@ struct MarkerPolicy {
         return strip_jfif || strip_jfxx || strip_exif || strip_xmp ||
                strip_icc || strip_iptc || strip_adobe || strip_com;
     }
+
+    // A policy that removes every category. `--strip-metadata` behaves this way
+    // (markers are never copied), so reporting classifies the source against
+    // this policy to list what would be dropped.
+    static MarkerPolicy all() {
+        MarkerPolicy p;
+        p.strip_jfif = true;
+        p.strip_jfxx = true;
+        p.strip_exif = true;
+        p.strip_xmp = true;
+        p.strip_icc = true;
+        p.strip_iptc = true;
+        p.strip_adobe = true;
+        p.strip_com = true;
+        return p;
+    }
 };
 
 // Which marker categories were found in a file and would be stripped by a

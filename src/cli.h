@@ -8,7 +8,13 @@
 
 #include "jpeg_reader.h"
 
-#define JPEGOPT_VERSION "1.0.0"
+#define JPEGOPT_VERSION "1.1.0"
+
+// Upper bound for -t/--threads. The per-file workload allocates large buffers
+// (a 12 MP frame costs ~250 MB across its candidate set), so an unbounded worker
+// count is a memory hazard, not just a scheduling mistake. Requests above this
+// are clamped rather than rejected, so `-t $(nproc)` stays harmless on big hosts.
+static constexpr int kMaxThreads = 64;
 
 struct CliOptions {
     bool help = false;

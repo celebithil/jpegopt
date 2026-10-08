@@ -119,7 +119,15 @@ bool parse_cli(int argc, char** argv, CliOptions& opts, std::string& err) {
         } else if (a == "-V" || a == "--version") {
             opts.version = true;
         } else if (needs_value("-t", "--threads")) {
-            opts.threads = atoi(argv[++i]);
+            const char* v = argv[++i];
+            char* end = nullptr;
+            long n = strtol(v, &end, 10);
+            if (end == v || *end != '\0' || n < 0) {
+                err = "invalid thread count (non-negative integer): " + std::string(v);
+                return false;
+            }
+            if (n > kMaxThreads) n = kMaxThreads;
+            opts.threads = static_cast<int>(n);
         } else if (a == "-i" || a == "--in-place") {
             opts.in_place = true;
         } else if (a == "--dry-run") {

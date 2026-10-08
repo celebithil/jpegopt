@@ -28,10 +28,6 @@ bool write_atomic(const std::string& target, const std::vector<uint8_t>& data,
 // file between them atomically. Unreadable paths yield false.
 bool same_filesystem(const std::string& a, const std::string& b);
 bool file_exists(const std::string& path);
-uint64_t file_size(const std::string& path);
-
-// Returns the path of the running executable (readlink /proc/self/exe).
-std::string self_path();
 
 std::string format_bytes(uint64_t bytes);
 std::string format_pct(double ratio);
